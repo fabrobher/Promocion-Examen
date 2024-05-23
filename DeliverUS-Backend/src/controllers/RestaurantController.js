@@ -1,4 +1,4 @@
-import { Restaurant, Product, RestaurantCategory, ProductCategory } from '../models/models.js'
+import { Restaurant, Product, RestaurantCategory, ProductCategory, sequelizeSession } from '../models/models.js'
 
 const index = async function (req, res) {
   try {
@@ -10,7 +10,7 @@ const index = async function (req, res) {
         model: RestaurantCategory,
         as: 'restaurantCategory'
       },
-        order: [[{ model: RestaurantCategory, as: 'restaurantCategory' }, 'name', 'ASC']]
+        order: [['promoted', 'DESC'], [{ model: RestaurantCategory, as: 'restaurantCategory' }, 'name', 'ASC']]
       }
     )
     res.json(restaurants)
@@ -28,7 +28,8 @@ const indexOwner = async function (req, res) {
         include: [{
           model: RestaurantCategory,
           as: 'restaurantCategory'
-        }]
+        }],
+        order: [['promoted', 'DESC']]
       })
     res.json(restaurants)
   } catch (err) {
@@ -95,12 +96,58 @@ const destroy = async function (req, res) {
   }
 }
 
+const promote = async function (req, res) {
+  const t = await sequelizeSession.transaction()
+  try {
+    const restaurantInPromotion = await Restaurant.findOne({
+      where: {
+        userId: req.user.id,
+        promoted: true
+      },
+      transaction: t
+    })
+
+    if (restaurantInPromotion) {
+      await Restaurant.update({
+        promoted: false
+      }, {
+        where: {
+          id: restaurantInPromotion.id
+        },
+        transaction: t
+      })
+    }
+
+    await Restaurant.update({
+      promoted: true
+    }, {
+      where: {
+        id: req.params.restaurantId
+      },
+      transaction: t
+    })
+
+    await t.commit()
+
+    const restaurantToBePromoted = await Restaurant.findOne({
+      where: {
+        id: req.params.restaurantId
+      }
+    })
+    res.json(restaurantToBePromoted)
+  } catch (error) {
+    await t.rollback()
+    res.status(500).send(error)
+  }
+}
+
 const RestaurantController = {
   index,
   indexOwner,
   create,
   show,
   update,
-  destroy
+  destroy,
+  promote
 }
 export default RestaurantController

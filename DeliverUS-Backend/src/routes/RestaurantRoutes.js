@@ -34,6 +34,7 @@ const loadFileRoutes = function (app) {
       RestaurantValidation.update,
       handleValidation,
       RestaurantController.update)
+
     .delete(
       isLoggedIn,
       hasRole('owner'),
@@ -62,5 +63,15 @@ const loadFileRoutes = function (app) {
       checkEntityExists(Restaurant, 'restaurantId'),
       RestaurantMiddleware.checkRestaurantOwnership,
       OrderController.analytics)
+
+  app.route('/restaurants/:restaurantId/promote')
+    .patch(
+      isLoggedIn,
+      hasRole('owner'),
+      checkEntityExists(Restaurant, 'restaurantId'),
+      RestaurantMiddleware.checkRestaurantOwnership,
+      handleValidation,
+      RestaurantController.promote
+    )
 }
 export default loadFileRoutes

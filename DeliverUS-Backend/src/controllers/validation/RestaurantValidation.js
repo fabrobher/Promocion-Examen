@@ -1,6 +1,26 @@
 import { check } from 'express-validator'
 import { checkFileIsImage, checkFileMaxSize } from './FileValidationHelper.js'
+import { Restaurant } from '../../models/models.js'
 const maxFileSize = 2000000 // around 2Mb
+
+const checkRestaurantToBePromoted = async (value, { req }) => {
+  if (value) {
+    try {
+      const numberOfRestaurantsPromotedOwner = await Restaurant.count({
+        where: {
+          userId: req.user.id,
+          promoted: true
+        }
+      })
+      if (numberOfRestaurantsPromotedOwner > 0) {
+        await Promise.reject(new Error('There is already a promoted restaurant'))
+      }
+      await Promise.resolve()
+    } catch (err) {
+      await Promise.reject(new Error(err))
+    }
+  }
+}
 
 const create = [
   check('name').exists().isString().isLength({ min: 1, max: 255 }).trim(),
@@ -24,7 +44,10 @@ const create = [
   }).withMessage('Please upload an image with format (jpeg, png).'),
   check('logo').custom((value, { req }) => {
     return checkFileMaxSize(req, 'logo', maxFileSize)
-  }).withMessage('Maximum file size of ' + maxFileSize / 1000000 + 'MB')
+  }).withMessage('Maximum file size of ' + maxFileSize / 1000000 + 'MB'),
+  check('promoted').custom((value, { req }) => {
+    return checkRestaurantToBePromoted(value, { req })
+  }).withMessage('This restaurant is not suitable for promotion')
 ]
 const update = [
   check('name').exists().isString().isLength({ min: 1, max: 255 }).trim(),
